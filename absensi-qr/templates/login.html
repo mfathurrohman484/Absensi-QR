@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <title>Login Absensi QR</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- ICON -->
+    <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+        body{
+            background: #f4f6f9;
+        }
+        .card{
+            border: none;
+            border-radius: 20px;
+        }
+        .login-logo{
+            font-size: 50px;
+            color: #2563eb;
+        }
+    </style>
+
+</head>
+<body>
+
+<div class="container mt-5">
+
+    <div class="row justify-content-center">
+
+        <div class="col-md-4">
+
+            <div class="card shadow">
+
+                <div class="card-body p-4">
+
+                    <!-- LOGO -->
+                    <div class="text-center mb-3">
+                        <i class="bi bi-qr-code-scan login-logo"></i>
+                        <h4 class="mt-2 fw-bold">Absensi QR</h4>
+                        <p class="text-muted">Silakan login untuk melanjutkan</p>
+                    </div>
+
+                    <!-- FIX: Tampilkan pesan error jika login gagal -->
+                    {% if error %}
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        {{ error }}
+                    </div>
+                    {% endif %}
+
+                    <form method="POST">
+
+                        <div class="mb-3">
+                            <label class="form-label">Username</label>
+                            <input
+                            type="text"
+                            name="username"
+                            class="form-control"
+                            placeholder="Masukkan username"
+                            required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <input
+                            type="password"
+                            name="password"
+                            class="form-control"
+                            placeholder="Masukkan password"
+                            required>
+                        </div>
+
+                        <button class="btn btn-primary w-100">
+                            <i class="bi bi-box-arrow-in-right"></i>
+                            Login
+                        </button>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>

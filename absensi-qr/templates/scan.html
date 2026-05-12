@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+    content="width=device-width, initial-scale=1.0">
+
+    <title>Scan QR</title>
+
+    <!-- BOOTSTRAP -->
+    <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet">
+
+    <!-- ICON -->
+    <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- HTML5 QR -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <style>
+
+        body{
+            background: #f4f6f9;
+            font-family: Arial, sans-serif;
+        }
+
+        .card{
+            border: none;
+            border-radius: 20px;
+        }
+
+        #reader{
+            width: 100%;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        /* FIX: Box sukses */
+        .result-box{
+            display: none;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        /* Sukses - hijau */
+        .result-box.success{
+            background: #198754;
+            color: white;
+        }
+
+        /* Error / QR tidak valid - merah */
+        .result-box.error{
+            background: #dc3545;
+            color: white;
+        }
+
+        /* Sudah absen - kuning */
+        .result-box.warning{
+            background: #f59e0b;
+            color: white;
+        }
+
+        @keyframes fadeIn{
+            from{
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to{
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+    </style>
+
+</head>
+<body>
+
+<div class="container mt-5">
+
+    <div class="card shadow">
+
+        <div class="card-body">
+
+            <!-- HEADER -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+
+                <div>
+                    <h2>
+                        <i class="bi bi-camera-fill"></i>
+                        Scan QR Absensi
+                    </h2>
+                    <p class="text-muted">
+                        Arahkan kamera ke QR Code user
+                    </p>
+                </div>
+
+                <div>
+                    <a href="/dashboard" class="btn btn-dark">
+                        Dashboard
+                    </a>
+                </div>
+
+            </div>
+
+            <!-- CAMERA -->
+            <div id="reader"></div>
+
+            <!-- FIX: Result box untuk sukses dan error -->
+            <div class="result-box" id="resultBox">
+
+                <h4 id="resultIcon"></h4>
+
+                <hr>
+
+                <p id="hasilText"></p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+// ======================================
+// WEB AUDIO API — Generate suara tanpa file mp3
+// ======================================
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playSound(type) {
+
+    const oscillator = audioCtx.createOscillator();
+    const gainNode   = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    if (type === 'success') {
+
+        // Sukses: 2 nada naik — "ding-ding"
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+        oscillator.frequency.setValueAtTime(1100, audioCtx.currentTime + 0.15);
+        gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.5);
+
+    } else if (type === 'warning') {
+
+        // Sudah absen: 2 nada datar — "beep-beep"
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
+        oscillator.frequency.setValueAtTime(600, audioCtx.currentTime + 0.2);
+        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.5);
+
+    } else if (type === 'error') {
+
+        // Error / QR tidak valid: nada turun — "bzzzt"
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.4);
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.5);
+
+    }
+
+}
+
+// ======================================
+// SCAN LOGIC
+// ======================================
+let sudahScan = false;
+
+function showResult(type, iconHtml, bodyHtml) {
+
+    const box  = document.getElementById('resultBox');
+    const icon = document.getElementById('resultIcon');
+    const text = document.getElementById('hasilText');
+
+    // Reset animasi dengan clone trick
+    box.style.display = 'none';
+    box.className = `result-box ${type}`;
+    icon.innerHTML  = iconHtml;
+    text.innerHTML  = bodyHtml;
+    box.style.display = 'block';
+
+    setTimeout(() => {
+        sudahScan = false;
+        box.style.display = 'none';
+    }, 4000);
+
+}
+
+function onScanSuccess(decodedText, decodedResult) {
+
+    if (sudahScan) return;
+    sudahScan = true;
+
+    fetch('/absen', {
+
+        method: 'POST',
+
+        headers: {
+            'Content-Type': 'application/json'
+        },
+
+        body: JSON.stringify({ qr_code: decodedText })
+
+    })
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        if (data.error) {
+
+            // Cek apakah pesannya "sudah absen" → warning, selain itu → error
+            const isSudahAbsen = data.error.toLowerCase().includes('sudah absen');
+
+            if (isSudahAbsen) {
+
+                // ⚠️ SUDAH ABSEN — suara warning
+                playSound('warning');
+                showResult(
+                    'warning',
+                    '<i class="bi bi-exclamation-triangle-fill"></i> Sudah Absen',
+                    data.error
+                );
+
+            } else {
+
+                // ❌ ERROR — suara error
+                playSound('error');
+                showResult(
+                    'error',
+                    '<i class="bi bi-x-circle-fill"></i> Gagal',
+                    data.error
+                );
+
+            }
+
+        } else {
+
+            // ✅ BERHASIL — suara sukses
+            playSound('success');
+            showResult(
+                'success',
+                '<i class="bi bi-check-circle-fill"></i> Absensi Berhasil',
+                `<b>Nama:</b> ${data.nama}<br>
+                 <b>Jam:</b> ${data.jam}<br>
+                 <b>Status:</b> ${data.status}`
+            );
+
+        }
+
+    })
+
+    .catch(() => {
+
+        // ❌ NETWORK ERROR
+        playSound('error');
+        showResult(
+            'error',
+            '<i class="bi bi-x-circle-fill"></i> Error Koneksi',
+            'Tidak dapat terhubung ke server.'
+        );
+
+    });
+
+}
+
+// START CAMERA
+const html5QrCode = new Html5Qrcode("reader");
+
+html5QrCode.start(
+
+    { facingMode: "environment" },
+
+    {
+        fps: 10,
+        qrbox: 250
+    },
+
+    onScanSuccess
+
+);
+
+</script>
+
+</body>
+</html>
